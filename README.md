@@ -32,7 +32,7 @@ Fresh captures are under [`screenshots/`](./screenshots/):
 - [Shared mechanic/shop listing](./screenshots/07-unified-mechanic-listing-390x844.png)
 - [Cancelled request preview](./screenshots/08-request-cancelled-390x844.png)
 
-See [`DESIGN_REVIEW.md`](./DESIGN_REVIEW.md) for the visual changes, [`SYSTEM_DESIGN.md`](./SYSTEM_DESIGN.md) for state and privacy boundaries, and [`TEST_REPORT.md`](./TEST_REPORT.md) for final run results.
+See [`DESIGN_REVIEW.md`](./DESIGN_REVIEW.md) for the visual changes, [`SYSTEM_DESIGN.md`](./SYSTEM_DESIGN.md) for state and privacy boundaries, and [`TEST_REPORT.md`](./TEST_REPORT.md) for the local QA results and limitations.
 
 ## Scope and data
 
@@ -42,6 +42,8 @@ There is no real map, provider coverage, account, registration, call, booking, m
 
 ## Release status
 
-The v5 source is isolated from the v4 project. The existing public v3 repository and earlier EAS build remain unchanged. A dedicated project was created under [`@kominman`](https://expo.dev/accounts/kominman/projects/patchlane-puncture-demo-v5), using Android package ID `com.kominman.patchlane`. The new internal Android preview build is queued on [EAS](https://expo.dev/accounts/kominman/projects/patchlane-puncture-demo-v5/builds/0dd64627-e58f-427b-8938-7519f598def5); the install link will be added when the APK is ready.
+The v5 source is isolated from the v4 project. The existing public [v3 repository](https://github.com/pakmultilinks-dot/puncture-rescue-app-v3) and earlier EAS build remain unchanged. The approved v5 source is published in the new [public GitHub repository](https://github.com/pakmultilinks-dot/puncture-rescue-app-v5). Its dedicated [Expo project](https://expo.dev/accounts/kominman/projects/patchlane-puncture-demo-v5) uses Android package ID `com.kominman.patchlane`.
 
-This is an internal preview build only, not an app-store release. A remote APK build does not imply native-device validation: no emulator, simulator, or physical-device behavior was tested.
+The internal Android APK preview is ready. Open the [Expo build/install page](https://expo.dev/accounts/kominman/projects/patchlane-puncture-demo-v5/builds/0dd64627-e58f-427b-8938-7519f598def5) on an Android device, or [download the APK directly](https://expo.dev/artifacts/eas/zLfvMwstj_dpyqZlAIpVvU3qgKJpHLOhtwvtcnvKCGM.apk). The APK download was verified with HTTP 200 on 2026-10-06. EAS lists the build expiration as **2026-10-20 09:59 UTC**.
+
+EAS built the app from source commit `82b1e8342502e56fcbcff5ea006812475821c2f4`. The final GitHub branch includes a later documentation-only release/QA update; app code, package ID and dependencies were not changed after the build upload. This is an internal preview only, not an app-store release. A remote APK build does not imply native-device validation: no emulator, simulator, or physical-device behavior was tested.
