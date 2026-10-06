@@ -1,0 +1,39 @@
+{
+  "expo": {
+    "name": "Patchlane v5 · Review",
+    "slug": "patchlane-puncture-demo-v5",
+    "owner": "kominman",
+    "version": "5.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "description": "Isolated local review build for fictional motorcycle puncture-help listings.",
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "package": "com.kominman.patchlane",
+      "predictiveBackGestureEnabled": false,
+      "permissions": [
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION"
+      ]
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "single"
+    },
+    "plugins": [
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Allow Patchlane to check your location once in the foreground after you tap to look for nearby help."
+        }
+      ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "d277772b-625c-4b66-8264-f6b0ff8a03d3"
+      }
+    }
+  }
+}

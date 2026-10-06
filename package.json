@@ -1,0 +1,27 @@
+{
+  "name": "patchlane-puncture-demo-v5",
+  "version": "5.0.0",
+  "private": true,
+  "main": "index.ts",
+  "dependencies": {
+    "expo": "~57.0.26",
+    "expo-location": "~57.0.20",
+    "expo-status-bar": "~57.0.1",
+    "react": "19.2.3",
+    "react-dom": "19.2.3",
+    "react-native": "0.86.3",
+    "react-native-web": "^0.21.2"
+  },
+  "devDependencies": {
+    "@types/react": "~19.2.2",
+    "typescript": "~6.0.3"
+  },
+  "scripts": {
+    "start": "expo start",
+    "web": "expo start --web",
+    "check": "tsc --noEmit",
+    "test": "python3 tests/smoke_mobile.py",
+    "pretest": "npm run build:web",
+    "build:web": "expo export --platform web --output-dir dist"
+  }
+}
