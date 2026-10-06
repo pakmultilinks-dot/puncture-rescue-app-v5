@@ -1,6 +1,6 @@
 # v5 test report
 
-**Run date:** 2026-10-05. **Target:** isolated v5 Expo web export, exercised locally.
+**Run date:** 2026-10-05 (local, pre-release QA). **Target:** isolated v5 Expo web export, exercised locally.
 
 ## Results
 
@@ -16,8 +16,8 @@ The suite regenerated eight individual screenshots at **390 × 844 CSS pixels** 
 
 ## Limits and advisories
 
-The browser suite mocks web permission/location APIs. **No native permission prompt, simulator, emulator, physical device, or Android/iOS build was tested.** No EAS build or remote Expo action was run. The v5 app config remains detached from the existing EAS project.
+This was local, web-only QA. At the time of this test run, no EAS build or remote Expo action had been performed. **No native permission prompt, simulator, emulator, physical device, or Android/iOS build was tested as part of this QA run.** The later internal Android preview build is a separate release artifact and does not count as device validation.
 
 The carried `dependency-audit.json` snapshot records **23 advisories: 16 high, 7 moderate, 0 critical**. A separate `npm audit --offline --json` run returned zero advisories from the local/offline audit data. Because that cache-only result conflicts with the carried snapshot and no live registry audit was made during this local-only phase, treat the dependency status as **unresolved**, not cleared. No dependency upgrades were made.
 
-All provider names, areas, distances, ETAs, availability windows, and phone values remain fictional; phone values are `000 000 0000`. No call, request, message, listing, payment, or location was sent or saved. No Git remote was configured; no push, publication, deployment, or public/external change was made.
+All provider names, areas, distances, ETAs, availability windows, and phone values remain fictional; phone values are `000 000 0000`. No call, request, message, listing, payment, or location was sent or saved. At the time of this report, no Git remote was configured and no push, publication, deployment, or public/external change had been made.

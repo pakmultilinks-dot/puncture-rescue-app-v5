@@ -23,7 +23,6 @@ The browser permission/location state is mocked for repeatability; this does **n
 Fresh captures are under [`screenshots/`](./screenshots/):
 
 - [Approval contact sheet](./screenshots/approval-contact-sheet.png) — rider start, sample mechanics, mechanic detail, and no-results recovery at native screenshot size.
-
 - [Rider start](./screenshots/01-rider-start-390x844.png)
 - [Denied location and area fallback](./screenshots/02-location-denied-fallback-390x844.png)
 - [Nearby fictional mechanics](./screenshots/03-nearby-mechanics-390x844.png)
@@ -41,4 +40,8 @@ Every mechanic name, area, phone number, distance, availability window and ETA i
 
 There is no real map, provider coverage, account, registration, call, booking, message, notification, payment, dispatch, location transmission or backend. No additional roadside service categories were added. The carried dependency-audit snapshot records 23 advisories (16 high, 7 moderate, 0 critical), while a cache-only `npm audit --offline` returned zero; because those results conflict and no live registry audit was run, treat dependency status as unresolved. No dependency versions were upgraded.
 
-This source is isolated in `puncture-rescue-app-v5`. The v4 project, public v3 repository, and existing EAS build were not changed. No publish, push, deploy, or native/remote Expo build was performed.
+## Release status
+
+The v5 source is isolated from the v4 project. The existing public v3 repository and earlier EAS build remain unchanged. A dedicated project was created under [`@kominman`](https://expo.dev/accounts/kominman/projects/patchlane-puncture-demo-v5), using Android package ID `com.kominman.patchlane`. The new internal Android preview build is queued on [EAS](https://expo.dev/accounts/kominman/projects/patchlane-puncture-demo-v5/builds/0dd64627-e58f-427b-8938-7519f598def5); the install link will be added when the APK is ready.
+
+This is an internal preview build only, not an app-store release. A remote APK build does not imply native-device validation: no emulator, simulator, or physical-device behavior was tested.
