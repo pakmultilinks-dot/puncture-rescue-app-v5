@@ -35,8 +35,8 @@ if config.get("android", {}).get("package") != "com.kominman.patchlane":
     raise SystemExit("FAIL  Android application id changed unexpectedly")
 if android.get("allowBackup") is not False:
     raise SystemExit("FAIL  app data backup must remain disabled while the pilot is stateless")
-if not isinstance(android.get("versionCode"), int) or android["versionCode"] < 2:
-    raise SystemExit("FAIL  Android build number must be explicit and incremented for this review APK")
+if not isinstance(android.get("versionCode"), int) or android["versionCode"] < 3:
+    raise SystemExit("FAIL  Android build number must be explicit and incremented for this install-review APK")
 for asset in ("assets/icon.png", "assets/adaptive-icon.png"):
     if not (ROOT / asset).is_file():
         raise SystemExit(f"FAIL  missing launcher icon asset: {asset}")

@@ -10,6 +10,7 @@
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "react-native": "0.86.3",
+    "react-native-safe-area-context": "~5.7.0",
     "react-native-web": "^0.21.2"
   },
   "devDependencies": {
@@ -25,7 +26,7 @@
     "start": "expo start --clear",
     "web": "expo start --web --clear",
     "check": "tsc --noEmit",
-    "test": "python3 tests/backend_contract_audit.py && python3 tests/native_config_audit.py && python3 tests/smoke_mobile.py && python3 tests/live_directory_smoke.py",
+    "test": "python3 tests/backend_contract_audit.py && python3 tests/native_config_audit.py && python3 tests/native_safe_area_audit.py && python3 tests/smoke_mobile.py && python3 tests/live_directory_smoke.py",
     "pretest": "npm run build:web",
     "build:web": "expo export --clear --platform web --output-dir dist"
   }

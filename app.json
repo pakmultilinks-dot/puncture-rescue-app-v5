@@ -13,7 +13,7 @@
     },
     "android": {
       "package": "com.kominman.patchlane",
-      "versionCode": 2,
+      "versionCode": 3,
       "allowBackup": false,
       "predictiveBackGestureEnabled": true,
       "adaptiveIcon": {

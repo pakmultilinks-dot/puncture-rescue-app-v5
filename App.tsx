@@ -1,5 +1,6 @@
 import { StatusBar } from 'expo-status-bar';
 import React, { useEffect, useMemo, useState } from 'react';
+import { SafeAreaProvider, SafeAreaView, initialWindowMetrics } from 'react-native-safe-area-context';
 import {
   ActivityIndicator, KeyboardAvoidingView, Linking, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View,
 } from 'react-native';
@@ -48,7 +49,7 @@ function TyreMark() {
 
 function Header({ onHome, live }: { onHome: () => void; live: boolean }) {
   return (
-    <View style={styles.header}>
+    <View testID="app-header" style={styles.header}>
       <Pressable accessibilityRole="button" accessibilityLabel="Patchlane home" onPress={onHome} style={styles.brand}>
         <TyreMark />
         <Text style={styles.brandName}>Patchlane</Text>
@@ -216,6 +217,14 @@ function DetailRow({ label, value }: { label: string; value: string }) {
 }
 
 export default function App() {
+  return (
+    <SafeAreaProvider initialMetrics={initialWindowMetrics}>
+      <PatchlaneApp />
+    </SafeAreaProvider>
+  );
+}
+
+function PatchlaneApp() {
   const liveMode = isProviderDirectoryConfigured;
   const [screen, setScreen] = useState<Screen>('home');
   const [area, setArea] = useState('');
@@ -464,23 +473,26 @@ export default function App() {
   return (
     <View style={styles.app}>
       <StatusBar style="dark" />
-      <View style={styles.shell}>
+      <SafeAreaView testID="safe-area-root" style={styles.safeArea} edges={['top', 'bottom', 'left', 'right']}>
+        <View style={styles.shell}>
           <Header onHome={goHome} live={liveMode} />
-        <KeyboardAvoidingView style={styles.pageContainer} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-          {screen === 'home' ? renderHome() : null}
-          {screen === 'area' ? renderArea() : null}
-          {screen === 'results' ? renderResults() : null}
-          {screen === 'profile' ? renderProfile() : null}
-          {screen === 'request' ? renderRequest() : null}
-          {screen === 'listing' ? renderListing() : null}
-        </KeyboardAvoidingView>
-      </View>
+          <KeyboardAvoidingView style={styles.pageContainer} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+            {screen === 'home' ? renderHome() : null}
+            {screen === 'area' ? renderArea() : null}
+            {screen === 'results' ? renderResults() : null}
+            {screen === 'profile' ? renderProfile() : null}
+            {screen === 'request' ? renderRequest() : null}
+            {screen === 'listing' ? renderListing() : null}
+          </KeyboardAvoidingView>
+        </View>
+      </SafeAreaView>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   app: { flex: 1, minHeight: '100%', backgroundColor: C.paper },
+  safeArea: { flex: 1, minHeight: 0, backgroundColor: C.paper },
   shell: { flex: 1, width: '100%', maxWidth: 520, alignSelf: 'center', backgroundColor: C.paper },
   header: { minHeight: 68, paddingHorizontal: 23, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderBottomWidth: 1, borderBottomColor: C.line },
   brand: { minHeight: 50, flexDirection: 'row', alignItems: 'center', gap: 10 },

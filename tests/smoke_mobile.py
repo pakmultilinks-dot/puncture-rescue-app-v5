@@ -18,8 +18,17 @@ class QuietHandler(SimpleHTTPRequestHandler):
         pass
 
 
-def mobile_context(browser, width=390):
-    return browser.new_context(viewport={"width": width, "height": 844}, device_scale_factor=1, is_mobile=True, has_touch=True)
+def mobile_context(browser, width=390, height=844):
+    return browser.new_context(viewport={"width": width, "height": height}, device_scale_factor=1, is_mobile=True, has_touch=True)
+
+
+def assert_header_bounds(page):
+    header = page.get_by_test_id("app-header")
+    expect(header).to_be_visible()
+    bounds = header.evaluate("el => el.getBoundingClientRect().toJSON()")
+    height = page.evaluate("innerHeight")
+    assert bounds["y"] >= 0, f"header begins above viewport: {bounds}"
+    assert bounds["height"] > 0 and bounds["y"] + bounds["height"] <= height, f"header is clipped by viewport: {bounds} / {height}px"
 
 
 def start_app(page):
@@ -28,6 +37,7 @@ def start_app(page):
     expect(page.get_by_text("Demo · fictional", exact=True)).to_be_visible()
     expect(page.get_by_text("Flat tyre?", exact=False)).to_be_visible()
     expect(page.get_by_text("Fictional examples only.", exact=False)).to_be_visible()
+    assert_header_bounds(page)
 
 
 def manual_search(page, area="Central sample area"):
@@ -37,8 +47,13 @@ def manual_search(page, area="Central sample area"):
 
 
 def assert_one_primary(page):
-    expect(page.get_by_test_id("primary-action")).to_have_count(1)
-    expect(page.get_by_test_id("primary-action")).to_be_visible()
+    button = page.get_by_test_id("primary-action")
+    expect(button).to_have_count(1)
+    expect(button).to_be_visible()
+    button.scroll_into_view_if_needed()
+    bounds = button.evaluate("el => el.getBoundingClientRect().toJSON()")
+    height = page.evaluate("innerHeight")
+    assert bounds["y"] >= 0 and bounds["y"] + bounds["height"] <= height, f"primary action is not reachable inside the viewport: {bounds} / {height}px"
 
 
 def assert_touch_targets(page, minimum=48):
@@ -175,8 +190,8 @@ def test_shared_sample_listing_is_not_signup(browser):
 def test_responsive_screens_and_touch_targets(browser):
     context = mobile_context(browser)
     page = context.new_page()
-    for width in (360, 390, 430, 768):
-        page.set_viewport_size({"width": width, "height": 844})
+    for width, height in ((320, 568), (360, 640), (390, 844), (430, 844), (768, 844)):
+        page.set_viewport_size({"width": width, "height": height})
         start_app(page)
         assert_one_primary(page)
         assert_no_horizontal_overflow(page, width)
@@ -223,7 +238,7 @@ def main():
                 ("empty sample area with recovery", test_no_results_recovery),
                 ("fictional mechanic profile and unsent request preview", test_sample_profile_and_unsent_request_preview),
                 ("one shared mechanic/shop sample form, not signup", test_shared_sample_listing_is_not_signup),
-                ("responsive layouts and 48px touch targets", test_responsive_screens_and_touch_targets),
+                ("small-phone and responsive layouts, safe header bounds, scrollable actions, and 48px touch targets", test_responsive_screens_and_touch_targets),
             ]
             failures = []
             for name, test in checks:
