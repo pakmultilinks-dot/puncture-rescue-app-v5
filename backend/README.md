@@ -1,31 +1,34 @@
-# Patchlane backend foundation (not deployed)
+# Patchlane Supabase backend — schema deployed, app not connected
 
-This is the first database boundary for a real provider directory, not a running backend. The app still uses its clearly marked fictional examples. There are no provider records, accounts, requests, messages, or live contact actions in this migration.
+A separate Supabase project for the Lahore pilot is active and healthy in **Mumbai (`ap-south-1`)**. Supabase returned a project-creation estimate of **$0/month**; no paid upgrade was accepted. The project is not the existing FleetFlow project. The verified-provider directory migration is applied, but no provider rows or verification events exist, and the Expo app does not yet query the directory.
 
-## What the migration establishes
+## What is deployed
 
-`supabase/migrations/20261007000000_verified_provider_directory.sql` is a Supabase-compatible PostgreSQL 15+ starting point. It models one provider listing for either an individual mechanic or a shop; there is no separate provider type or service category. It has no seed data and stores no rider location, provider coordinates, exact street address, identity documents, or verification evidence.
+`supabase/migrations/20261007000000_verified_provider_directory.sql` is a Supabase PostgreSQL 15+ migration. It models one listing for either an individual mechanic or a shop; there is no separate provider type or service category. It has no seed data and stores no rider location, provider coordinates, exact street address, identity documents, or raw verification evidence.
 
-Public directory access is limited to an explicitly published listing with a current verification window, recorded listing consent, recorded public-contact consent, and a public phone number. The public role can read only the display name, coarse area label, consented public phone, verification dates, and update time. Anonymous clients cannot write provider records or verification events. The listing guard rejects attempts to publish incomplete or expired records, and the RLS policy stops listings from being returned when verification expires.
+Public directory access is limited to an explicitly published listing with a current verification window, recorded listing consent, recorded public-contact consent, and a public phone number. The public view runs with caller rights and exposes only `id`, `display_name`, `public_area_label`, `public_phone`, `verified_at`, `verification_valid_until`, and `updated_at`. The public roles receive no provider write permissions. Provider enrollment, edits, and verification-event writes are reserved for a trusted backend service role. The listing guard rejects publication without current verification and both consent records; row-level security stops expired listings from being returned.
 
-Provider verification events retain only the reviewer, check method, outcome, and validity window. Do not put raw identity documents, private notes, private phone numbers, or other sensitive evidence in these tables. Store only the evidence needed to substantiate verification, under a separately reviewed retention and access policy.
+Provider verification events retain only the reviewer ID, check method, outcome, and validity window. Do not put raw identity documents, private notes, private phone numbers, or other sensitive evidence in these tables. Keep the source and proof needed to substantiate verification under a separately reviewed retention and access policy.
 
-## Not yet configured
+## Checks performed
 
-No Supabase project is connected or provisioned, and this migration has not been run against a database. The current Expo client has not been wired to the directory endpoint. Do not put a Supabase service-role key in the app; any privileged enrollment or moderation flow must run on a trusted server.
+After applying the migration, live database checks confirmed:
 
-Before deployment, the owner needs to choose:
+- `private.providers` has row-level security enabled and contains **0 rows**; `private.provider_verification_events` contains **0 rows**.
+- The public view has `security_invoker=true` and exactly the seven columns listed above.
+- The anonymous role can read the public view and its `public_phone` column, but cannot insert provider records or read verification events; the authenticated role cannot update provider records.
+- The anonymous role cannot read the internal `verification_status` column.
 
-1. The launch city/coverage area and the data-hosting region that satisfies local requirements.
-2. Supabase (the prepared reference target) or a different backend.
-3. A Supabase project/account and an authorized deployment path, if Supabase is selected.
-4. The provider-verification standard, consent wording/retention rules, and an accountable person who can review listings and keep verification current.
-5. A permitted source or direct opt-in process for provider records. Do not scrape private contact details, add names or phone numbers without provider permission, or publish sample/demo records.
+These checks verify the installed schema, metadata and grants. They do not test positive/negative filter behavior with provider rows, perform an end-to-end REST request, or validate provider evidence. No sample or production rows were inserted as a test. Keep the `private` schema out of PostgREST's exposed-schema list and expose only the public `provider_directory` view.
 
-The existing app must remain in demo mode until the backend is actually deployed, real provider information has been verified and consented, and operational support and contact-safety decisions are settled. Calls, messages, booking, payments, and dispatch are deliberately outside this foundation.
+## What remains before a live directory
 
-## Deployment and checks
+The project and database boundary are set up, but **the live service is not ready**. The owner still needs an approved direct opt-in process or other permitted source for provider listings, explicit provider consent to display the listing and contact number, a documented verification and renewal standard, and an accountable operator to review and maintain provider records. No provider names, phone numbers, or locations have been gathered or contacted.
 
-After the owner selects Supabase and provides project access through an approved connector, review the project's region and API exposure settings, then apply the migration using the project's authorized Supabase CLI workflow. Keep the `private` schema out of PostgREST's exposed-schema list; expose only the public `provider_directory` view. Verify with the anonymous key that unverified, expired, unconsented, paused, and removed records are not returned, and verify that anonymous inserts/updates fail. Do not add production records as a deployment test.
+The Expo app is not wired to Supabase. Do not put a Supabase service-role key in the app or commit secrets. Any privileged enrollment/moderation flow must run on a trusted server. The app must remain clearly demo-only until consented, verified listings are approved and end-to-end access rules are tested. Calls, messages, booking, payments, and dispatch remain out of scope until contact safety and operational support are resolved.
 
-The migration's static regression check is `python3 tests/backend_contract_audit.py`. It validates key guardrails in the SQL source, but is not a substitute for running the migration and testing RLS in a provisioned PostgreSQL project.
+The Supabase project region is a data-location choice, not proof of legal or regulatory compliance. Confirm any applicable residency requirements before onboarding real provider data. The project creation estimate was $0/month, but re-check cost before any plan change or paid add-on; do not accept one without separate approval.
+
+## Repository checks
+
+`python3 tests/backend_contract_audit.py` is part of `npm test` and statically checks the SQL guardrails. A static test does not replace live RLS/REST testing. The local type-check, web build, six mobile smoke groups, and accessibility audit passed on 2026-10-07; app screens and demo behavior were left unchanged.

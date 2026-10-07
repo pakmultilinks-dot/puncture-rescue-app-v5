@@ -16,15 +16,16 @@ The suite regenerated eight individual screenshots at **390 × 844 CSS pixels** 
 
 ## Limits and advisories
 
-This was local, web-only QA. At the time of this test run, no EAS build or remote Expo action had been performed. **No native permission prompt, simulator, emulator, physical device, or Android/iOS build was tested as part of this QA run.** The later internal Android preview build is a separate release artifact and does not count as device validation.
+This was local, web-only QA. No native permission prompt, simulator, emulator, physical device, or Android/iOS build was tested. The later internal Android preview build is a separate release artifact and does not count as device validation.
 
-The carried `dependency-audit.json` snapshot records **23 advisories: 16 high, 7 moderate, 0 critical**. A separate `npm audit --offline --json` run returned zero advisories from the local/offline audit data. Because that cache-only result conflicts with the carried snapshot and no live registry audit was made during this local-only phase, treat the dependency status as **unresolved**, not cleared. No dependency upgrades were made.
+The carried `dependency-audit.json` snapshot records **23 advisories: 16 high, 7 moderate, 0 critical**. A separate cache-only `npm audit --offline --json` run returned zero advisories. Because that result conflicts with the carried snapshot and no live registry audit was made, treat dependency status as **unresolved**, not cleared. No dependency upgrades were made.
 
-All provider names, areas, distances, ETAs, availability windows, and phone values remain fictional; phone values are `000 000 0000`. No call, request, message, listing, payment, or location was sent or saved. At the time of this report, no Git remote was configured and no push, publication, deployment, or public/external change had been made.
-
+All provider names, areas, distances, ETAs, availability windows, and phone values shown in the app remain fictional; phone values are `000 000 0000`. No call, request, message, listing, payment, or rider location was sent or saved by the app.
 
 ## Backend foundation — 2026-10-07
 
-A static regression audit was added at `tests/backend_contract_audit.py` and is now part of `npm test`. It checks that the migration requires current verification and two consent records, exposes only a read-only limited public view, has no provider seed rows, and omits rider coordinates, exact addresses, and provider-type splits. This audit checks SQL source text only; it does not apply the migration or exercise live PostgreSQL RLS. The app UI and demo-only behavior were intentionally left unchanged.
+The static regression audit at `tests/backend_contract_audit.py` is part of `npm test`. It checks the SQL source for consent and verification gates, limited read access, no seed rows, and location/type minimization. The local type-check, web build, all six mobile smoke groups, the static audit, accessibility audit and Python syntax checks passed on 2026-10-07. No mobile runtime screens or behavior changed.
 
-The migration has not been run against a real project. No verified provider data has been imported, and no end-to-end integration or device build was made for this backend-preparation change.
+A separate Supabase project for the Lahore pilot was created in Mumbai (`ap-south-1`) after approval; Supabase returned a project cost estimate of **$0/month**. The SQL migration is applied. Live checks found zero provider rows and zero verification events, RLS enabled, a `security_invoker=true` public directory view with seven intended columns, anonymous SELECT access to the public view, no anonymous provider inserts, no authenticated provider updates, no anonymous verification-event reads, and no anonymous access to the internal verification-status column.
+
+These live checks verify schema and grants but do not validate listing-filter behavior against records, end-to-end REST access, provider consent/evidence, or device behavior. No real provider information was imported, and the Expo app is not connected to the Supabase project. The app remains demo-only; calls, bookings, messages, payments and dispatch remain disabled.

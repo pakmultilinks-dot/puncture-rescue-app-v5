@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Static regression checks for the un-deployed provider-directory migration."""
+"""Static regression checks for the deployed-but-empty provider-directory migration."""
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -35,4 +35,4 @@ for forbidden in ("latitude", "longitude", "rider_location", "exact_address", "p
 if "insert into private.providers" in sql or "insert into private.provider_verification_events" in sql:
     raise SystemExit("FAIL  migration must not seed provider data or verification events")
 
-print(f"PASS  backend contract static audit ({len(required)} guardrails; no seeds or prohibited location/type fields)")
+print(f"PASS  backend contract static audit ({len(required) + 1} guardrails; no seeds or prohibited location/type fields)")
