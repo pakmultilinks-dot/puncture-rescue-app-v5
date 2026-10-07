@@ -12,7 +12,7 @@ A small persistent `Demo · fictional` header marker applies across screens. Sho
 
 ## Backend foundation deployed 2026-10-07 — app remains demo-only
 
-A separate, healthy Supabase project for the Lahore pilot is in Mumbai (`ap-south-1`). The provider-directory migration is applied and defines one unified provider record, an internal verification-event log, and a caller-rights public directory view. Public reads are constrained to published listings with current verification and explicit listing/contact consent; public roles cannot write providers or read verification events.
+A separate, healthy Supabase project for the Lahore pilot is in Mumbai (`ap-south-1`). The provider-directory migrations are applied and define one unified provider record, an internal verification-event log, and a caller-rights public directory view. Public reads require published status, unexpired verification, explicit listing and contact consent, and a matching, latest verified audit event. Verification events are append-only to the service role; public roles cannot write provider records or read verification events.
 
 Live metadata checks confirmed row-level security, `security_invoker=true`, the expected public columns and blocked write permissions. The database currently contains zero provider rows and zero verification events. The mobile app does not call Supabase and continues to show only fictional samples; no real provider data or contact paths were added.
 
