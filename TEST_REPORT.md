@@ -1,26 +1,25 @@
 # Patchlane v5 test report
 
-**Run date:** 2026-10-07. **Target:** Expo web exports and the approved Supabase project’s public API.
+**Run date:** 2026-10-07. **Source:** current working tree, before the new EAS internal APK build.
 
-## Results
+## Checks passed
 
-- `npm run check` — passed (`tsc --noEmit`).
-- `npm test` — passed the backend static audit, all six existing browser groups, and the isolated live-directory browser test.
-- `python3 tests/accessibility_audit.py` — all audited color pairs passed WCAG AA, with minimum contrast **4.78:1**.
+- `npx expo install --check` — all Expo SDK 57 dependencies are compatible.
+- `npm run check` — TypeScript passed with `tsc --noEmit`.
+- `npm test` — passed the backend audit, native configuration audit, five fictional-demo browser groups, and the isolated live-directory browser test. The demo checks cover area entry, sample results, no-match recovery, fictional profile/request preview, the single sample listing preview, responsive widths, and 48 px touch targets.
+- The live browser test passed success, empty, and network-failure states against an isolated local mock. Before phone handoff it checks a fresh ID-scoped public-view read; revoked listings, expired listings, and a failed recheck all block the dialer. The provider fixture is kept in the test process and is never sent to Supabase.
+- `CI=1 npx expo prebuild --platform android --clean` — generated native Android files with no prebuild warnings. Only `android.permission.INTERNET` is active; location, storage, overlay, and vibration are removal directives. `allowBackup` resolves to `false`. Expo SDK 57's Gradle configuration falls back to target API 36.
+- `python3 tests/accessibility_audit.py` — ten text/background pairs pass WCAG AA; the minimum ratio is **4.78:1** against a 4.50:1 threshold.
 - `python3 -m py_compile tests/*.py` and `git diff --check` — passed.
-- The six existing browser groups cover the puncture-only rider start, tap-only location behavior in fictional demo mode, denied-permission fallback, fictional sample results, no-results recovery, local profile/request cancellation, the shared mechanic/shop preview, responsive layouts, and 48-pixel touch targets.
-- `tests/live_directory_smoke.py` builds with a reserved mock hostname, clears Metro’s environment-sensitive cache, and intercepts the directory API locally. It checks the exact seven-field GET, current-listing UI, consented phone display without a contact action, no-results and network-error states, and that live mode never checks rider location. The test fixture is held only in the test process; it is not sent to Supabase.
 
-The existing browser suite regenerates eight **390 × 844 CSS-pixel** fictional-demo screenshots. Browser geolocation is mocked; the suite does not test a native permission prompt or device location behavior.
+The suite regenerates ten **390 × 844 CSS-pixel web QA screenshots** in [`screenshots/`](./screenshots/), plus a contact sheet. These are web renders, not Android emulator or physical-device captures.
 
-## Supabase read-path verification
+## Backend and security status
 
-The active project `nuavjqyuquhmknwktxts` has all three migrations applied. A real anonymous GET to `public.provider_directory` returned **HTTP 200 with `[]`**. A request selecting schema `private` was rejected with `PGRST106`; PostgREST exposes only `public` and `graphql_public`. Database checks confirmed 0 provider rows, 0 verification events, no anonymous SELECT privilege on `private.providers`, no anonymous access to `verification_status`, and an invoker/barrier public view with the seven-field contract.
+The real anonymous GET to the Supabase public view returned HTTP 200 with `[]`. The project has **0 provider rows** and **0 verification events**. The test does not validate real provider consent, evidence, onboarding, or a populated production roster; it inserts no data.
 
-The REST test validates the read path while the directory is empty. It does not validate populated listing behavior, provider evidence, consent collection, native-app behavior, or ongoing verification operations. No provider records or verification events were inserted for testing.
+After the SDK-compatible Expo update, removal of the unused location SDK, and a scoped/tested UUID 11.1.1 override for Xcode's single `uuid.v4()` call, the live npm audit reports **15 high and 0 moderate findings**. The reviewed [`braces` advisory](https://github.com/advisories/GHSA-vfj7-8cjw-p6xm) and [`node-forge` advisory](https://github.com/advisories/GHSA-86w9-cpqp-85rv) currently have no patched versions. `npm audit fix --force` was not used because it proposes downgrading Expo to 44 and React Native to 0.72.
 
-## Release limits
+## Limits
 
-The Expo `preview` environment uses only `EXPO_PUBLIC_SUPABASE_URL` and `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY`. The internal Android APK build `bf9584a9-d3d0-467c-a1ba-786dbfb563ed` finished successfully from the read-only integration release; the bundled Android JavaScript contains the approved project URL and publishable-key prefix, and does not contain the isolated test hostname. Open the [Expo install page](https://expo.dev/accounts/kominman/projects/patchlane-puncture-demo-v5/builds/bf9584a9-d3d0-467c-a1ba-786dbfb563ed) or [download the APK](https://expo.dev/artifacts/eas/KxwMXB3Gq0G8U_ws6S-DCL1_-h4g8786La4dvCDRjkk.apk). This configuration check is not a native runtime test.
-
-No service-role key is in the client or repository. The local demo fixtures remain separate from the live backend, and live mode does not enable calls, messages, requests, bookings, payments, or dispatch. This is not production-ready: there are no opted-in provider records and no documented sourcing, verification/renewal, support, or response process. No emulator, simulator, physical device, or native permission prompt was tested. The dependency-audit snapshot still reports 23 advisories while a cache-only offline audit returned none; with no live registry audit or upgrades, dependency status remains unresolved.
+The new EAS profile is confirmed as an internal APK build, but the current code has not yet been built or run on a physical Android device/emulator. The native dialer handoff, keyboard/focus behavior, Android upgrade/install path, and real network behavior still require hands-on testing. The previous EAS APK predates these fixes and must not be used to validate the current source. This is an internal pilot, not a public-service or store-readiness sign-off.

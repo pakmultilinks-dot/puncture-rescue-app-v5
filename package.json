@@ -4,9 +4,9 @@
   "private": true,
   "main": "index.ts",
   "dependencies": {
-    "expo": "~57.0.26",
-    "expo-location": "~57.0.20",
+    "expo": "~57.0.27",
     "expo-status-bar": "~57.0.1",
+    "expo-system-ui": "~57.0.4",
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "react-native": "0.86.3",
@@ -16,11 +16,16 @@
     "@types/react": "~19.2.2",
     "typescript": "~6.0.3"
   },
+  "overrides": {
+    "xcode": {
+      "uuid": "11.1.1"
+    }
+  },
   "scripts": {
     "start": "expo start --clear",
     "web": "expo start --web --clear",
     "check": "tsc --noEmit",
-    "test": "python3 tests/backend_contract_audit.py && python3 tests/smoke_mobile.py && python3 tests/live_directory_smoke.py",
+    "test": "python3 tests/backend_contract_audit.py && python3 tests/native_config_audit.py && python3 tests/smoke_mobile.py && python3 tests/live_directory_smoke.py",
     "pretest": "npm run build:web",
     "build:web": "expo export --clear --platform web --output-dir dist"
   }

@@ -8,7 +8,7 @@ export type ProviderDirectoryRecord = {
   updated_at: string;
 };
 
-// Expo inlines only these explicitly public client settings at bundle time.
+// Expo inlines only these explicitly public client settings.
 // Never add a Supabase service-role key to this module or the mobile app.
 declare const process: {
   env: {
@@ -50,20 +50,8 @@ function toPublicRecord(value: unknown): ProviderDirectoryRecord | null {
   };
 }
 
-export async function searchProviderDirectory(area: string, signal?: AbortSignal): Promise<ProviderDirectoryRecord[]> {
+async function fetchPublicRows(query: URLSearchParams, signal?: AbortSignal): Promise<ProviderDirectoryRecord[]> {
   if (!isProviderDirectoryConfigured) throw new Error('The live provider directory is not configured.');
-  const searchText = area.trim()
-    .replace(/[,*%()"\\]/g, ' ')
-    .replace(/\s+/g, ' ')
-    .slice(0, 80);
-  if (searchText.length < 2) return [];
-
-  const query = new URLSearchParams({
-    select: PUBLIC_FIELDS,
-    public_area_label: `ilike.*${searchText}*`,
-    order: 'display_name.asc',
-    limit: '50',
-  });
   const response = await fetch(`${SUPABASE_URL}/rest/v1/provider_directory?${query.toString()}`, {
     method: 'GET',
     headers: {
@@ -77,4 +65,31 @@ export async function searchProviderDirectory(area: string, signal?: AbortSignal
   const payload: unknown = await response.json();
   if (!Array.isArray(payload)) throw new Error('The live provider directory returned an invalid response.');
   return payload.map(toPublicRecord).filter((record): record is ProviderDirectoryRecord => record !== null);
+}
+
+export async function searchProviderDirectory(area: string, signal?: AbortSignal): Promise<ProviderDirectoryRecord[]> {
+  const searchText = area.trim()
+    .replace(/[,*%()"\\]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .slice(0, 80);
+  if (searchText.length < 2) return [];
+
+  const query = new URLSearchParams({
+    select: PUBLIC_FIELDS,
+    public_area_label: `ilike.*${searchText}*`,
+    order: 'display_name.asc',
+    limit: '50',
+  });
+  return fetchPublicRows(query, signal);
+}
+
+export async function isProviderListingCurrent(providerId: string): Promise<boolean> {
+  if (!/^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(providerId)) return false;
+  const query = new URLSearchParams({
+    select: PUBLIC_FIELDS,
+    id: `eq.${providerId}`,
+    limit: '1',
+  });
+  const rows = await fetchPublicRows(query);
+  return rows.some((record) => record.id === providerId && Date.parse(record.verification_valid_until) > Date.now());
 }

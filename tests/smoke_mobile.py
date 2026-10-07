@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
-"""Local Playwright checks and fresh mobile captures for the v5 review build."""
+"""Browser regression checks and fresh QA captures for Patchlane's local demo."""
 from functools import partial
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-import json
 import os
 from threading import Thread
 
@@ -23,36 +22,16 @@ def mobile_context(browser, width=390):
     return browser.new_context(viewport={"width": width, "height": 844}, device_scale_factor=1, is_mobile=True, has_touch=True)
 
 
-def mock_location(page, state):
-    """Mock web permission/location APIs so the local-only flow is repeatable."""
-    script = """(() => {
-      const simulatedState = __SIMULATED_STATE__;
-      window.__locationAudit = { permissionChecks: 0, positionReads: 0 };
-      Object.defineProperty(navigator, 'permissions', { configurable: true, value: { query: async ({ name }) => {
-        if (name === 'geolocation') window.__locationAudit.permissionChecks += 1;
-        return { state: simulatedState };
-      } } });
-      Object.defineProperty(navigator, 'geolocation', { configurable: true, value: {
-        getCurrentPosition: (success, error) => {
-          window.__locationAudit.positionReads += 1;
-          if (simulatedState === 'granted') success({ coords: { latitude: 0, longitude: 0, altitude: null, accuracy: 100, altitudeAccuracy: null, heading: null, speed: null }, timestamp: Date.now() });
-          else error({ code: 1, message: 'Permission denied' });
-        }, watchPosition: () => 1, clearWatch: () => {}
-      } });
-    })();""".replace("__SIMULATED_STATE__", json.dumps(state))
-    page.add_init_script(script)
-
-
 def start_app(page):
     page.goto(BASE_URL, wait_until="networkidle")
     expect(page.get_by_role("button", name="Patchlane home")).to_be_visible()
     expect(page.get_by_text("Demo · fictional", exact=True)).to_be_visible()
     expect(page.get_by_text("Flat tyre?", exact=False)).to_be_visible()
-    expect(page.get_by_text("nothing sent", exact=True)).to_be_visible()
+    expect(page.get_by_text("Fictional examples only.", exact=False)).to_be_visible()
 
 
 def manual_search(page, area="Central sample area"):
-    page.get_by_role("button", name="Use an area or landmark").click()
+    page.get_by_role("button", name="Browse fictional sample mechanics by area").click()
     page.get_by_label("Area or landmark").fill(area)
     page.get_by_role("button", name="Show sample mechanics").click()
 
@@ -86,54 +65,36 @@ def capture(page, filename):
     return path
 
 
-def test_home_is_focused_and_location_is_opt_in(browser):
+def test_home_is_area_only_and_privacy_clear(browser):
     context = mobile_context(browser)
     page = context.new_page()
-    mock_location(page, "granted")
     external_requests = []
     page.on("request", lambda req: external_requests.append(req.url) if not req.url.startswith(BASE_URL) else None)
     start_app(page)
     assert_one_primary(page)
-    assert page.evaluate("window.__locationAudit.permissionChecks") == 0
-    assert page.evaluate("window.__locationAudit.positionReads") == 0
+    home_copy = page.locator("body").inner_text().lower()
+    assert "no rider location" in home_copy
+    assert "location permission" not in home_copy
     for forbidden in ("tow truck", "fuel delivery", "battery replacement", "other roadside services"):
-        assert forbidden not in page.locator("body").inner_text().lower(), f"scope drift: {forbidden}"
+        assert forbidden not in home_copy, f"scope drift: {forbidden}"
     assert_touch_targets(page)
     assert_no_horizontal_overflow(page, 390)
     capture(page, "01-rider-start-390x844.png")
-    page.get_by_role("button", name="Find puncture help using optional one-time location check").click()
-    expect(page.get_by_text("Sample mechanics", exact=True)).to_be_visible(timeout=10000)
-    assert page.evaluate("window.__locationAudit.permissionChecks") == 1
-    assert page.evaluate("window.__locationAudit.positionReads") == 1
-    assert "not matched to your location" in page.locator("body").inner_text()
-    assert external_requests == [], f"unexpected external requests: {external_requests}"
-    context.close()
-
-
-def test_denied_fallback_and_sample_list(browser):
-    context = mobile_context(browser)
-    page = context.new_page()
-    mock_location(page, "denied")
-    start_app(page)
-    assert page.evaluate("window.__locationAudit.permissionChecks") == 0
-    page.get_by_role("button", name="Find puncture help using optional one-time location check").click()
-    expect(page.get_by_text("Location was not available", exact=False)).to_be_visible()
+    page.get_by_role("button", name="Browse fictional sample mechanics by area").click()
     expect(page.get_by_label("Area or landmark")).to_be_visible()
-    assert page.evaluate("window.__locationAudit.permissionChecks") == 1
-    assert page.evaluate("window.__locationAudit.positionReads") == 0
     assert_one_primary(page)
-    assert_touch_targets(page)
-    capture(page, "02-location-denied-fallback-390x844.png")
+    capture(page, "02-manual-area-search-390x844.png")
     page.get_by_label("Area or landmark").fill("Central sample area")
     page.get_by_role("button", name="Show sample mechanics").click()
     expect(page.get_by_text("Sample mechanics", exact=True)).to_be_visible()
     expect(page.get_by_text("Moss Lane Puncture Care", exact=True)).to_be_visible()
     expect(page.get_by_text("Sample window: later today", exact=True)).to_be_visible()
     expect(page.get_by_text("sample distance", exact=True)).to_have_count(2)
-    expect(page.get_by_test_id("primary-action")).to_have_count(0)
+    assert page.get_by_test_id("primary-action").count() == 0
     assert_touch_targets(page)
     assert_no_horizontal_overflow(page, 390)
-    capture(page, "03-nearby-mechanics-390x844.png")
+    capture(page, "03-sample-mechanics-390x844.png")
+    assert external_requests == [], f"unexpected external requests: {external_requests}"
     context.close()
 
 
@@ -144,16 +105,16 @@ def test_no_results_recovery(browser):
     manual_search(page, "Harbor sample area")
     expect(page.get_by_text("No sample mechanics yet", exact=True)).to_be_visible()
     expect(page.get_by_text("NO MATCH IN THIS SAMPLE", exact=True)).to_be_visible()
-    expect(page.get_by_test_id("primary-action")).to_be_visible()
     assert_one_primary(page)
     assert_touch_targets(page)
-    capture(page, "06-no-results-390x844.png")
+    assert_no_horizontal_overflow(page, 390)
+    capture(page, "04-no-sample-match-390x844.png")
     page.get_by_test_id("primary-action").click()
     expect(page.get_by_label("Area or landmark")).to_have_value("Harbor sample area")
     context.close()
 
 
-def test_profile_request_and_cancel_are_local(browser):
+def test_sample_profile_and_unsent_request_preview(browser):
     context = mobile_context(browser)
     page = context.new_page()
     external_requests = []
@@ -163,72 +124,64 @@ def test_profile_request_and_cancel_are_local(browser):
     page.get_by_role("button", name="Open sample mechanic Moss Lane Puncture Care").click()
     expect(page.get_by_text("Moss Lane Puncture Care", exact=True)).to_be_visible()
     expect(page.get_by_text("000 000 0000", exact=True)).to_be_visible()
-    assert "Fictional profile. No call can be placed from this preview." in page.locator("body").inner_text()
+    expect(page.get_by_text("Fictional profile. No call can be placed from this preview.", exact=True)).to_be_visible()
     assert_one_primary(page)
     assert_touch_targets(page)
-    capture(page, "04-mechanic-profile-390x844.png")
+    capture(page, "05-sample-mechanic-profile-390x844.png")
     page.get_by_role("button", name="Preview request").click()
     expect(page.get_by_text("Request preview", exact=True)).to_be_visible()
-    expect(page.get_by_text("Waiting for a reply", exact=True)).to_be_visible()
-    expect(page.get_by_text("LOCAL PREVIEW", exact=True)).to_be_visible()
-    expect(page.get_by_text("no mechanic was contacted", exact=False)).to_be_visible()
+    expect(page.get_by_text("No mechanic was contacted", exact=True)).to_be_visible()
+    expect(page.get_by_text("DEMO · NOT SENT", exact=True)).to_be_visible()
+    expect(page.get_by_text("Waiting for a reply", exact=True)).to_have_count(0)
     assert_one_primary(page)
     assert_touch_targets(page)
-    capture(page, "05-request-cancel-preview-390x844.png")
-    page.get_by_role("button", name="Cancel request preview").click()
-    expect(page.get_by_text("Preview cancelled", exact=True)).to_be_visible()
-    expect(page.get_by_text("Nothing was sent or shared", exact=True)).to_be_visible()
-    assert_one_primary(page)
-    capture(page, "08-request-cancelled-390x844.png")
+    capture(page, "06-request-preview-not-sent-390x844.png")
+    page.get_by_role("button", name="Close demo preview").click()
+    expect(page.get_by_text("Preview closed", exact=True)).to_be_visible()
+    expect(page.get_by_text("The local-only preview was closed.", exact=True)).to_be_visible()
     assert external_requests == [], f"unexpected external requests: {external_requests}"
+    capture(page, "07-request-preview-closed-390x844.png")
     context.close()
 
 
-def test_one_shared_fictional_listing(browser):
+def test_shared_sample_listing_is_not_signup(browser):
     context = mobile_context(browser)
     page = context.new_page()
     start_app(page)
-    page.get_by_role("button", name="Mechanic or shop? Preview one shared listing").click()
-    expect(page.get_by_text("Preview a listing", exact=True)).to_be_visible()
-    assert len(page.get_by_role("textbox").all()) == 3, "expected one shared name, phone and coverage-area form"
+    page.get_by_role("button", name="Mechanic or shop? Preview one sample listing; not signup").click()
+    expect(page.get_by_text("Sample listing preview", exact=True)).to_be_visible()
+    expect(page.get_by_text("provider onboarding is not available", exact=False)).to_be_visible()
+    assert len(page.get_by_role("textbox").all()) == 3, "expected a shared sample name, phone and service-area form"
     body = page.locator("body").inner_text().lower()
     for forbidden in ("provider type", "independent mechanic", "shop signup", "service category", "choose your role"):
         assert forbidden not in body, f"unexpected provider split/category: {forbidden}"
     assert_one_primary(page)
     assert_touch_targets(page)
-    capture(page, "07-unified-mechanic-listing-390x844.png")
+    capture(page, "08-sample-listing-form-390x844.png")
     page.get_by_role("button", name="Preview listing").click()
-    expect(page.get_by_text("Enter a fictional name", exact=False)).to_be_visible()
+    expect(page.get_by_text("Enter a sample name", exact=False)).to_be_visible()
     expect(page.get_by_text("Use the all-zero sample number: 000 000 0000.", exact=True)).to_be_visible()
-    page.get_by_label("Name riders will see").fill("Sample Wheel Help")
+    page.get_by_label("Sample name to display").fill("Sample Wheel Help")
     page.get_by_label("Sample phone number").fill("5551234567")
-    page.get_by_label("Sample coverage area").fill("Central sample area")
+    page.get_by_label("Sample service area").fill("Central sample area")
     page.get_by_role("button", name="Preview listing").click()
     expect(page.get_by_text("Use the all-zero sample number: 000 000 0000.", exact=True)).to_be_visible()
     page.get_by_label("Sample phone number").fill("0000000000")
     page.get_by_role("button", name="Preview listing").click()
-    expect(page.get_by_text("Preview only", exact=True)).to_be_visible()
-    expect(page.get_by_text("No listing was saved, published or sent.", exact=True)).to_be_visible()
+    expect(page.get_by_text("Not published · preview only", exact=True)).to_be_visible()
     context.close()
 
 
 def test_responsive_screens_and_touch_targets(browser):
     context = mobile_context(browser)
     page = context.new_page()
-    mock_location(page, "denied")
     for width in (360, 390, 430, 768):
         page.set_viewport_size({"width": width, "height": 844})
         start_app(page)
         assert_one_primary(page)
         assert_no_horizontal_overflow(page, width)
         assert_touch_targets(page)
-        page.get_by_role("button", name="Find puncture help using optional one-time location check").click()
-        expect(page.get_by_label("Area or landmark")).to_be_visible()
-        assert_one_primary(page)
-        assert_no_horizontal_overflow(page, width)
-        assert_touch_targets(page)
-        page.get_by_label("Area or landmark").fill("Harbor sample area")
-        page.get_by_role("button", name="Show sample mechanics").click()
+        manual_search(page, "Harbor sample area")
         expect(page.get_by_text("No sample mechanics yet", exact=True)).to_be_visible()
         assert_one_primary(page)
         assert_no_horizontal_overflow(page, width)
@@ -241,18 +194,14 @@ def test_responsive_screens_and_touch_targets(browser):
         assert_touch_targets(page)
         page.get_by_role("button", name="Open sample mechanic Moss Lane Puncture Care").click()
         assert_no_horizontal_overflow(page, width)
-        assert_touch_targets(page)
         page.get_by_role("button", name="Preview request").click()
         assert_no_horizontal_overflow(page, width)
         assert_touch_targets(page)
-        page.get_by_role("button", name="Cancel request preview").click()
-        assert_one_primary(page)
         page.goto(BASE_URL, wait_until="networkidle")
-        page.get_by_role("button", name="Mechanic or shop? Preview one shared listing").click()
+        page.get_by_role("button", name="Mechanic or shop? Preview one sample listing; not signup").click()
         assert_one_primary(page)
         assert_no_horizontal_overflow(page, width)
         assert_touch_targets(page)
-        page.goto(BASE_URL, wait_until="networkidle")
     context.close()
 
 
@@ -270,12 +219,11 @@ def main():
         with sync_playwright() as playwright:
             browser = playwright.chromium.launch(executable_path=os.environ.get("CHROMIUM_PATH", "/usr/bin/chromium"), args=["--no-sandbox", "--disable-dev-shm-usage"])
             checks = [
-                ("focused puncture-only home and tap-only location", test_home_is_focused_and_location_is_opt_in),
-                ("denied-location fallback and fictional sample list", test_denied_fallback_and_sample_list),
-                ("no-results recovery", test_no_results_recovery),
-                ("profile, single request preview and cancellation", test_profile_request_and_cancel_are_local),
-                ("unified mechanic/shop sample listing", test_one_shared_fictional_listing),
-                ("responsive widths, one primary action and 48px targets", test_responsive_screens_and_touch_targets),
+                ("area-only rider flow and location-minimal copy", test_home_is_area_only_and_privacy_clear),
+                ("empty sample area with recovery", test_no_results_recovery),
+                ("fictional mechanic profile and unsent request preview", test_sample_profile_and_unsent_request_preview),
+                ("one shared mechanic/shop sample form, not signup", test_shared_sample_listing_is_not_signup),
+                ("responsive layouts and 48px touch targets", test_responsive_screens_and_touch_targets),
             ]
             failures = []
             for name, test in checks:

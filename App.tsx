@@ -1,13 +1,11 @@
 import { StatusBar } from 'expo-status-bar';
-import * as Location from 'expo-location';
 import React, { useEffect, useMemo, useState } from 'react';
 import {
-  ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View,
+  ActivityIndicator, KeyboardAvoidingView, Linking, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View,
 } from 'react-native';
-import { isProviderDirectoryConfigured, searchProviderDirectory } from './providerDirectory';
+import { isProviderDirectoryConfigured, isProviderListingCurrent, searchProviderDirectory } from './providerDirectory';
 
 type Screen = 'home' | 'area' | 'results' | 'profile' | 'request' | 'listing';
-type LocationState = 'idle' | 'checking' | 'denied' | 'checked';
 type Mechanic = {
   id: string;
   name: string;
@@ -55,9 +53,9 @@ function Header({ onHome, live }: { onHome: () => void; live: boolean }) {
         <TyreMark />
         <Text style={styles.brandName}>Patchlane</Text>
       </Pressable>
-      <View accessibilityLabel={live ? 'Live directory · verified listings' : 'Demo · fictional providers and estimates'} style={styles.demoPill}>
+      <View accessibilityLabel={live ? 'Pilot directory; provider availability is not guaranteed' : 'Demo with fictional examples'} style={styles.demoPill}>
         <View style={styles.demoDot} />
-        <Text style={styles.demoText}>{live ? 'Live · verified' : 'Demo · fictional'}</Text>
+        <Text style={styles.demoText}>{live ? 'Pilot' : 'Demo · fictional'}</Text>
       </View>
     </View>
   );
@@ -145,7 +143,7 @@ function TextField({ label, value, onChangeText, placeholder, keyboardType = 'de
 
 function HomeSteps({ live }: { live: boolean }) {
   return (
-    <View accessibilityLabel={live ? 'Three steps: choose an area, review verified listings, details only' : 'Three steps: choose an area, pick a sample mechanic, preview only'} style={styles.stepsStrip}>
+    <View accessibilityLabel={live ? 'Three steps: choose an area, review public listings, open your phone dialer if a listing is available' : 'Three steps: choose an area, review fictional examples, preview only'} style={styles.stepsStrip}>
       <View style={styles.stepItem}>
         <Text style={styles.stepIndex}>01</Text>
         <Text style={styles.stepName}>Area</Text>
@@ -154,14 +152,14 @@ function HomeSteps({ live }: { live: boolean }) {
       <View style={styles.stepDivider} />
       <View style={styles.stepItem}>
         <Text style={styles.stepIndex}>02</Text>
-        <Text style={styles.stepName}>Mechanic</Text>
-        <Text style={styles.stepDetail}>{live ? 'verified listings' : 'sample choices'}</Text>
+        <Text style={styles.stepName}>{live ? 'Listings' : 'Mechanic'}</Text>
+        <Text style={styles.stepDetail}>{live ? 'current + verified' : 'sample choices'}</Text>
       </View>
       <View style={styles.stepDivider} />
       <View style={styles.stepItem}>
         <Text style={styles.stepIndex}>03</Text>
-        <Text style={styles.stepName}>{live ? 'Details' : 'Preview'}</Text>
-        <Text style={styles.stepDetail}>{live ? 'details only' : 'nothing sent'}</Text>
+        <Text style={styles.stepName}>{live ? 'Contact' : 'Preview'}</Text>
+        <Text style={styles.stepDetail}>{live ? 'open phone app' : 'nothing sent'}</Text>
       </View>
     </View>
   );
@@ -220,17 +218,17 @@ function DetailRow({ label, value }: { label: string; value: string }) {
 export default function App() {
   const liveMode = isProviderDirectoryConfigured;
   const [screen, setScreen] = useState<Screen>('home');
-  const [locationState, setLocationState] = useState<LocationState>('idle');
   const [area, setArea] = useState('');
   const [activeArea, setActiveArea] = useState(liveMode ? '' : 'Central sample area');
   const [message, setMessage] = useState('');
   const [selected, setSelected] = useState<Mechanic>(DEMO_MECHANICS[0]);
-  const [requestStatus, setRequestStatus] = useState<'waiting' | 'cancelled'>('waiting');
+  const [requestStatus, setRequestStatus] = useState<'open' | 'closed'>('open');
   const [listingName, setListingName] = useState('');
   const [listingPhone, setListingPhone] = useState('');
   const [listingArea, setListingArea] = useState('');
   const [listingErrors, setListingErrors] = useState<Record<string, string>>({});
   const [listingPreview, setListingPreview] = useState(false);
+  const [contactChecking, setContactChecking] = useState(false);
   const [directoryRows, setDirectoryRows] = useState<Awaited<ReturnType<typeof searchProviderDirectory>>>([]);
   const [directoryLoading, setDirectoryLoading] = useState(false);
   const [directoryError, setDirectoryError] = useState(false);
@@ -270,36 +268,39 @@ export default function App() {
     setMessage('');
     setScreen('results');
   };
-  const checkLocationAfterTap = async () => {
-    if (liveMode) { openArea(); return; }
-    if (locationState === 'checking') return;
+  const openMechanic = (mechanic: Mechanic) => { setSelected(mechanic); setMessage(''); setScreen('profile'); };
+  const openProviderDialer = async () => {
+    if (selected.isSample || contactChecking) return;
+    if (!selected.verificationValidUntil || Date.parse(selected.verificationValidUntil) <= Date.now()) {
+      setMessage('This listing is no longer currently verified. Search again before calling.');
+      return;
+    }
     setMessage('');
-    setLocationState('checking');
+    setContactChecking(true);
+    let listingIsCurrent = false;
     try {
-      const permission = await Location.requestForegroundPermissionsAsync();
-      if (permission.status !== 'granted') {
-        setLocationState('denied');
-        setArea('');
-        setScreen('area');
-        return;
-      }
-      // Check one foreground fix, then discard it. The example results never use coordinates.
-      await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Low });
-      setLocationState('checked');
-      setActiveArea('Central sample area');
-      setScreen('results');
+      listingIsCurrent = await isProviderListingCurrent(selected.id);
     } catch {
-      setLocationState('denied');
-      setArea('');
-      setScreen('area');
+      setMessage('The current listing could not be checked. Try again when you have a connection.');
+      setContactChecking(false);
+      return;
+    }
+    setContactChecking(false);
+    if (!listingIsCurrent) {
+      setMessage('This listing is no longer public with current contact consent and verification. Search again before calling.');
+      return;
+    }
+    try {
+      await Linking.openURL(`tel:${selected.phone}`);
+    } catch {
+      setMessage('This device could not open a phone app. Try dialing the public number on another device.');
     }
   };
-  const openMechanic = (mechanic: Mechanic) => { setSelected(mechanic); setMessage(''); setScreen('profile'); };
   const validateListing = () => {
     const errors: Record<string, string> = {};
-    if (listingName.trim().length < 2) errors.name = 'Enter a fictional name with at least two characters.';
+    if (listingName.trim().length < 2) errors.name = 'Enter a sample name with at least two characters.';
     if (listingPhone.replace(/\D/g, '') !== '0000000000') errors.phone = 'Use the all-zero sample number: 000 000 0000.';
-    if (listingArea.trim().length < 2) errors.area = 'Enter a sample coverage area.';
+    if (listingArea.trim().length < 2) errors.area = 'Enter a sample service area.';
     setListingErrors(errors);
     setListingPreview(Object.keys(errors).length === 0);
   };
@@ -313,25 +314,23 @@ export default function App() {
       </View>
       <HomeSteps live={liveMode} />
       <InlineNote>{liveMode
-        ? 'Search by area only. The live directory includes current verified listings with explicit public-contact consent; your location is not collected.'
-        : 'Location is checked once, only after you tap. It is never shared.'}</InlineNote>
+        ? 'Area-only search. Patchlane does not request rider location. This pilot may have no listings; providers control public-contact consent. No booking or dispatch is available.'
+        : 'Fictional examples only. Search by sample area; no rider location, call, or message is used.'}</InlineNote>
       <View style={styles.homeActions}>
         <PrimaryButton
-          label={liveMode ? 'Search verified listings' : locationState === 'checking' ? 'Checking location…' : 'Find puncture help'}
-          accessibilityLabel={liveMode ? 'Search verified mechanics by area' : 'Find puncture help using optional one-time location check'}
-          onPress={checkLocationAfterTap}
-          disabled={!liveMode && locationState === 'checking'}
+          label={liveMode ? 'Search by area' : 'Browse sample mechanics'}
+          accessibilityLabel={liveMode ? 'Search the pilot directory by area' : 'Browse fictional sample mechanics by area'}
+          onPress={openArea}
         />
-        {liveMode ? null : <TextLink label="Use an area or landmark" onPress={openArea} />}
       </View>
-      <Pressable accessibilityRole="button" accessibilityLabel="Mechanic or shop? Preview one shared listing" onPress={() => { setListingErrors({}); setListingPreview(false); setScreen('listing'); }} style={styles.listingInvite}>
+      {liveMode ? null : <Pressable accessibilityRole="button" accessibilityLabel="Mechanic or shop? Preview one sample listing; not signup" onPress={() => { setListingErrors({}); setListingPreview(false); setScreen('listing'); }} style={styles.listingInvite}>
         <View style={styles.inviteRule} />
         <View style={styles.inviteCopy}>
           <Text style={styles.inviteTitle}>Mechanic or shop?</Text>
-          <Text style={styles.inviteSubtitle}>Preview one shared listing</Text>
+          <Text style={styles.inviteSubtitle}>Sample listing · not signup</Text>
         </View>
         <Text style={styles.rowArrow} accessible={false}>↗</Text>
-      </Pressable>
+      </Pressable>}
     </ScrollView>
   );
 
@@ -339,10 +338,10 @@ export default function App() {
     <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
       <BackLink label="Back" onPress={goHome} />
       <PageTitle title="Where should we look?" subtitle={liveMode
-        ? 'Enter an area or landmark. No rider location is collected.'
-        : locationState === 'denied' ? 'Location was not available. Enter an area or landmark instead.' : 'Enter an area or landmark to see sample mechanics.'} />
+        ? 'Enter an area or landmark. Patchlane does not request rider location.'
+        : 'Enter a sample area or landmark to see fictional mechanics.'} />
       <TextField label="Area or landmark" value={area} onChangeText={(value) => { setArea(value); setMessage(''); }} placeholder={liveMode ? 'e.g., Gulberg or Johar Town' : 'e.g., Central sample area'} helper={liveMode ? 'Only current verified, consented listings are returned.' : 'Try Central sample area or East sample area.'} error={message} />
-      <PrimaryButton label={liveMode ? 'Search live directory' : 'Show sample mechanics'} onPress={() => showResults(area)} />
+      <PrimaryButton label={liveMode ? 'Search pilot directory' : 'Show sample mechanics'} onPress={() => showResults(area)} />
     </ScrollView>
   );
 
@@ -350,11 +349,11 @@ export default function App() {
     <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
       <BackLink label={liveMode || mechanics.length ? 'Change area' : 'Back to start'} onPress={liveMode || mechanics.length ? openArea : goHome} />
       <PageTitle title={liveMode
-        ? directoryLoading ? 'Checking live directory' : directoryError ? 'Directory unavailable' : mechanics.length ? 'Verified listings' : 'No verified listings yet'
+        ? directoryLoading ? 'Searching pilot directory' : directoryError ? 'Pilot directory unavailable' : mechanics.length ? 'Verified listings' : 'No verified listings yet'
         : mechanics.length ? 'Sample mechanics' : 'No sample mechanics yet'} subtitle={activeArea} />
       <InlineNote>{liveMode
-        ? 'Only published listings with current verification and explicit listing/contact consent appear here. No location is used.'
-        : 'Examples · not matched to your location. Distance, timing and availability are fictional.'}</InlineNote>
+        ? 'Only published listings with current verification and explicit public-contact consent appear here. Search is area-only. Opening a phone number sends you to your dialer; no booking or dispatch is available.'
+        : 'Examples only. Distance, timing and availability are fictional.'}</InlineNote>
       {liveMode && directoryLoading ? (
         <View style={styles.loadingState}>
           <ActivityIndicator color={C.accent} />
@@ -363,7 +362,7 @@ export default function App() {
       ) : directoryError ? (
         <View style={styles.emptyState}>
           <Text style={styles.emptyEyebrow}>DIRECTORY TEMPORARILY UNAVAILABLE</Text>
-          <Text style={styles.emptyText}>The live directory could not be reached. Try again when you have a connection.</Text>
+          <Text style={styles.emptyText}>The pilot directory could not be reached. Try again when you have a connection.</Text>
           <PrimaryButton label="Try again" onPress={() => setDirectoryRetry((value) => value + 1)} />
           <TextLink label="Change area" onPress={openArea} />
         </View>
@@ -374,9 +373,9 @@ export default function App() {
       ) : (
         <View style={styles.emptyState}>
           <View style={styles.emptyMark}><TyreMark /></View>
-          <Text style={styles.emptyEyebrow}>{liveMode ? 'NO CURRENT VERIFIED MATCHES' : 'NO MATCH IN THIS SAMPLE'}</Text>
+          <Text style={styles.emptyEyebrow}>{liveMode ? 'NO CURRENT VERIFIED LISTINGS' : 'NO MATCH IN THIS SAMPLE'}</Text>
           <Text style={styles.emptyText}>{liveMode
-            ? `No current verified listings were found in ${activeArea}. The directory may be empty for this area; try a different area later.`
+            ? `No current verified listings were found in ${activeArea}. Patchlane may not yet have providers there; no one will be dispatched. Try another area.`
             : `No sample listings in ${activeArea}. Try Central or East sample area.`}</Text>
           <PrimaryButton label="Change area" onPress={openArea} />
         </View>
@@ -402,25 +401,34 @@ export default function App() {
           <DetailRow label="Verification valid until" value={new Date(selected.verificationValidUntil || '').toLocaleDateString()} />
         </>}
       </View>
+      {!selected.isSample && message ? <InlineNote tone="alert">{message}</InlineNote> : null}
       {selected.isSample
         ? <>
           <InlineNote>Fictional profile. No call can be placed from this preview.</InlineNote>
-          <PrimaryButton label="Preview request" onPress={() => { setRequestStatus('waiting'); setScreen('request'); }} />
+          <PrimaryButton label="Preview request" onPress={() => { setRequestStatus('open'); setScreen('request'); }} />
         </>
-        : <InlineNote>This public phone number has explicit contact consent. Calling, messaging and requests are not enabled in Patchlane.</InlineNote>}
+        : <>
+          <InlineNote>This provider explicitly consented to public contact. The button opens your phone dialer; you decide whether to place the call. Patchlane does not book, dispatch, or guarantee availability.</InlineNote>
+          <PrimaryButton
+            label={contactChecking ? 'Checking current listing…' : 'Open phone dialer'}
+            accessibilityLabel={contactChecking ? `Checking current listing for ${selected.name}` : `Open phone dialer for ${selected.name}`}
+            disabled={contactChecking}
+            onPress={openProviderDialer}
+          />
+        </>}
     </ScrollView>
   );
 
   const renderRequest = () => (
     <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
       <BackLink label="Mechanic details" onPress={() => setScreen('profile')} />
-      <PageTitle title="Request preview" subtitle="Motorcycle puncture help" />
+      <PageTitle title="Request preview" subtitle="Example only · no mechanic is contacted" />
       <View style={styles.requestStatus}>
-        <View style={[styles.statusDot, requestStatus === 'cancelled' && styles.statusDotQuiet]} />
+        <View style={[styles.statusDot, requestStatus === 'closed' && styles.statusDotQuiet]} />
         <View style={styles.requestStatusCopy}>
-          <Text style={styles.requestStatusEyebrow}>LOCAL PREVIEW</Text>
-          <Text style={styles.requestStatusTitle}>{requestStatus === 'waiting' ? 'Waiting for a reply' : 'Preview cancelled'}</Text>
-          <Text style={styles.requestStatusSub}>{requestStatus === 'waiting' ? 'Simulated · no mechanic was contacted' : 'Nothing was sent or shared'}</Text>
+          <Text style={styles.requestStatusEyebrow}>DEMO · NOT SENT</Text>
+          <Text style={styles.requestStatusTitle}>{requestStatus === 'open' ? 'No mechanic was contacted' : 'Preview closed'}</Text>
+          <Text style={styles.requestStatusSub}>{requestStatus === 'open' ? 'No call, request, or message was sent.' : 'The local-only preview was closed.'}</Text>
         </View>
       </View>
       <View style={styles.detailList}>
@@ -428,8 +436,8 @@ export default function App() {
         <DetailRow label="Sample area" value={activeArea} />
       </View>
       <PrimaryButton
-        label={requestStatus === 'waiting' ? 'Cancel request preview' : 'Back to sample mechanics'}
-        onPress={() => requestStatus === 'waiting' ? setRequestStatus('cancelled') : setScreen('results')}
+        label={requestStatus === 'open' ? 'Close demo preview' : 'Back to sample mechanics'}
+        onPress={() => requestStatus === 'open' ? setRequestStatus('closed') : setScreen('results')}
       />
     </ScrollView>
   );
@@ -437,15 +445,15 @@ export default function App() {
   const renderListing = () => (
     <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
       <BackLink label="Back" onPress={goHome} />
-      <PageTitle title="Preview a listing" subtitle="One form for an individual mechanic or a shop." />
-      {listingPreview ? <InlineNote>No listing was saved, published or sent.</InlineNote> : null}
+      <PageTitle title="Sample listing preview" subtitle="Design example for one mechanic or a shop—not a signup." />
+      <InlineNote>Sample details only. Nothing is saved, published, or sent; provider onboarding is not available in this app.</InlineNote>
       <View style={styles.form}>
-        <TextField label="Name riders will see" value={listingName} onChangeText={(value) => { setListingName(value); setListingPreview(false); }} placeholder="Sample Wheel Help" error={listingErrors.name} />
+        <TextField label="Sample name to display" value={listingName} onChangeText={(value) => { setListingName(value); setListingPreview(false); }} placeholder="Sample Wheel Help" error={listingErrors.name} />
         <TextField label="Sample phone number" value={listingPhone} onChangeText={(value) => { setListingPhone(value); setListingPreview(false); }} placeholder="000 000 0000" keyboardType="phone-pad" helper="Use the all-zero sample number only." error={listingErrors.phone} />
-        <TextField label="Sample coverage area" value={listingArea} onChangeText={(value) => { setListingArea(value); setListingPreview(false); }} placeholder="Central sample area" error={listingErrors.area} />
+        <TextField label="Sample service area" value={listingArea} onChangeText={(value) => { setListingArea(value); setListingPreview(false); }} placeholder="Central sample area" error={listingErrors.area} />
       </View>
       {listingPreview ? <View style={styles.listingPreview}>
-        <Text style={styles.previewLabel}>Preview only</Text>
+        <Text style={styles.previewLabel}>Not published · preview only</Text>
         <Text style={styles.listingPreviewName}>{listingName.trim()}</Text>
         <Text style={styles.previewDetail}>{listingArea.trim()} · 000 000 0000</Text>
       </View> : null}
