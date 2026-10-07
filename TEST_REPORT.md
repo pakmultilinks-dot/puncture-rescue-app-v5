@@ -21,3 +21,10 @@ This was local, web-only QA. At the time of this test run, no EAS build or remot
 The carried `dependency-audit.json` snapshot records **23 advisories: 16 high, 7 moderate, 0 critical**. A separate `npm audit --offline --json` run returned zero advisories from the local/offline audit data. Because that cache-only result conflicts with the carried snapshot and no live registry audit was made during this local-only phase, treat the dependency status as **unresolved**, not cleared. No dependency upgrades were made.
 
 All provider names, areas, distances, ETAs, availability windows, and phone values remain fictional; phone values are `000 000 0000`. No call, request, message, listing, payment, or location was sent or saved. At the time of this report, no Git remote was configured and no push, publication, deployment, or public/external change had been made.
+
+
+## Backend foundation — 2026-10-07
+
+A static regression audit was added at `tests/backend_contract_audit.py` and is now part of `npm test`. It checks that the migration requires current verification and two consent records, exposes only a read-only limited public view, has no provider seed rows, and omits rider coordinates, exact addresses, and provider-type splits. This audit checks SQL source text only; it does not apply the migration or exercise live PostgreSQL RLS. The app UI and demo-only behavior were intentionally left unchanged.
+
+The migration has not been run against a real project. No verified provider data has been imported, and no end-to-end integration or device build was made for this backend-preparation change.

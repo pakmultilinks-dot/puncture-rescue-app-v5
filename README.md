@@ -47,3 +47,9 @@ The v5 source is isolated from the v4 project. The existing public [v3 repositor
 The internal Android APK preview is ready. Open the [Expo build/install page](https://expo.dev/accounts/kominman/projects/patchlane-puncture-demo-v5/builds/0dd64627-e58f-427b-8938-7519f598def5) on an Android device, or [download the APK directly](https://expo.dev/artifacts/eas/zLfvMwstj_dpyqZlAIpVvU3qgKJpHLOhtwvtcnvKCGM.apk). The APK download was verified with HTTP 200 on 2026-10-06. EAS lists the build expiration as **2026-10-20 09:59 UTC**.
 
 EAS built the app from source commit `82b1e8342502e56fcbcff5ea006812475821c2f4`. The final GitHub branch includes a later documentation-only release/QA update; app code, package ID and dependencies were not changed after the build upload. This is an internal preview only, not an app-store release. A remote APK build does not imply native-device validation: no emulator, simulator, or physical-device behavior was tested.
+
+## Live-service foundation — not deployed
+
+On 2026-10-07, a Supabase-compatible PostgreSQL migration was added as a secure starting point for a single unified mechanic/shop provider directory. It requires current provider verification plus separate recorded consent to publish the listing and public contact number; row-level security hides incomplete, paused, unverified, expired, or unconsented records. The migration contains no provider seeds and excludes rider coordinates and exact addresses. The new static SQL guardrail audit is included in `npm test`.
+
+This does **not** connect a backend or add real providers. The app remains a fictional-data demo, and calls, bookings, messages, payments, and dispatch remain disabled. See [`backend/README.md`](./backend/README.md) for what is prepared and the remaining account, market/region, provider-permission, verification, and operational decisions. The migration has not been run against a provisioned database; its static test is not a live RLS test.
