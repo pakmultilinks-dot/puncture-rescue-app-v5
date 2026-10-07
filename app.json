@@ -1,12 +1,12 @@
 {
   "expo": {
-    "name": "Patchlane v5 · Review",
+    "name": "Patchlane",
     "slug": "patchlane-puncture-demo-v5",
     "owner": "kominman",
     "version": "5.0.0",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
-    "description": "Isolated local review build for fictional motorcycle puncture-help listings.",
+    "description": "Motorcycle puncture-help pilot. Listings appear only with current verification and consent.",
     "ios": {
       "supportsTablet": true
     },
@@ -26,7 +26,7 @@
       [
         "expo-location",
         {
-          "locationWhenInUsePermission": "Allow Patchlane to check your location once in the foreground after you tap to look for nearby help."
+          "locationWhenInUsePermission": "Allow Patchlane to check your location once after you tap; location is not shared or used to match listings."
         }
       ]
     ],

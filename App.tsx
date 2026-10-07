@@ -1,33 +1,37 @@
 import { StatusBar } from 'expo-status-bar';
 import * as Location from 'expo-location';
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
-  KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View,
+  ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View,
 } from 'react-native';
+import { isProviderDirectoryConfigured, searchProviderDirectory } from './providerDirectory';
 
 type Screen = 'home' | 'area' | 'results' | 'profile' | 'request' | 'listing';
 type LocationState = 'idle' | 'checking' | 'denied' | 'checked';
-type DemoMechanic = {
+type Mechanic = {
   id: string;
   name: string;
   area: string;
-  distance: string;
-  eta: string;
-  availability: string;
   phone: string;
+  distance?: string;
+  eta?: string;
+  availability?: string;
+  verifiedAt?: string;
+  verificationValidUntil?: string;
+  isSample: boolean;
 };
 
-const DEMO_MECHANICS: DemoMechanic[] = [
-  { id: 'moss', name: 'Moss Lane Puncture Care', area: 'Central sample area', distance: '1.4 km', eta: '12–18 min', availability: 'Sample window: open now', phone: '000 000 0000' },
-  { id: 'orbit', name: 'Orbit Wheel Works', area: 'Central sample area', distance: '2.8 km', eta: '20–30 min', availability: 'Sample window: later today', phone: '000 000 0000' },
-  { id: 'fern', name: 'Fern Street Tyre Help', area: 'East sample area', distance: '1.9 km', eta: '15–24 min', availability: 'Sample window: open now', phone: '000 000 0000' },
+const DEMO_MECHANICS: Mechanic[] = [
+  { id: 'moss', name: 'Moss Lane Puncture Care', area: 'Central sample area', distance: '1.4 km', eta: '12–18 min', availability: 'Sample window: open now', phone: '000 000 0000', isSample: true },
+  { id: 'orbit', name: 'Orbit Wheel Works', area: 'Central sample area', distance: '2.8 km', eta: '20–30 min', availability: 'Sample window: later today', phone: '000 000 0000', isSample: true },
+  { id: 'fern', name: 'Fern Street Tyre Help', area: 'East sample area', distance: '1.9 km', eta: '15–24 min', availability: 'Sample window: open now', phone: '000 000 0000', isSample: true },
 ];
 const C = {
   paper: '#F6F4EF', white: '#FFFEFB', ink: '#252723', muted: '#62675F', quiet: '#676C63',
   line: '#DAD9D1', accent: '#B94430', alert: '#8B3325',
 };
 
-function providersFor(area: string): DemoMechanic[] {
+function providersFor(area: string): Mechanic[] {
   const value = area.trim().toLowerCase();
   if (value.includes('central') || value.includes('midtown')) return DEMO_MECHANICS.filter((item) => item.id === 'moss' || item.id === 'orbit');
   if (value.includes('east')) return DEMO_MECHANICS.filter((item) => item.id === 'fern');
@@ -44,16 +48,16 @@ function TyreMark() {
   );
 }
 
-function Header({ onHome }: { onHome: () => void }) {
+function Header({ onHome, live }: { onHome: () => void; live: boolean }) {
   return (
     <View style={styles.header}>
       <Pressable accessibilityRole="button" accessibilityLabel="Patchlane home" onPress={onHome} style={styles.brand}>
         <TyreMark />
         <Text style={styles.brandName}>Patchlane</Text>
       </Pressable>
-      <View accessibilityLabel="Demo · fictional providers and estimates" style={styles.demoPill}>
+      <View accessibilityLabel={live ? 'Live directory · verified listings' : 'Demo · fictional providers and estimates'} style={styles.demoPill}>
         <View style={styles.demoDot} />
-        <Text style={styles.demoText}>Demo · fictional</Text>
+        <Text style={styles.demoText}>{live ? 'Live · verified' : 'Demo · fictional'}</Text>
       </View>
     </View>
   );
@@ -139,9 +143,9 @@ function TextField({ label, value, onChangeText, placeholder, keyboardType = 'de
   );
 }
 
-function HomeSteps() {
+function HomeSteps({ live }: { live: boolean }) {
   return (
-    <View accessibilityLabel="Three steps: choose an area, pick a sample mechanic, preview only" style={styles.stepsStrip}>
+    <View accessibilityLabel={live ? 'Three steps: choose an area, review verified listings, details only' : 'Three steps: choose an area, pick a sample mechanic, preview only'} style={styles.stepsStrip}>
       <View style={styles.stepItem}>
         <Text style={styles.stepIndex}>01</Text>
         <Text style={styles.stepName}>Area</Text>
@@ -151,23 +155,23 @@ function HomeSteps() {
       <View style={styles.stepItem}>
         <Text style={styles.stepIndex}>02</Text>
         <Text style={styles.stepName}>Mechanic</Text>
-        <Text style={styles.stepDetail}>sample choices</Text>
+        <Text style={styles.stepDetail}>{live ? 'verified listings' : 'sample choices'}</Text>
       </View>
       <View style={styles.stepDivider} />
       <View style={styles.stepItem}>
         <Text style={styles.stepIndex}>03</Text>
-        <Text style={styles.stepName}>Preview</Text>
-        <Text style={styles.stepDetail}>nothing sent</Text>
+        <Text style={styles.stepName}>{live ? 'Details' : 'Preview'}</Text>
+        <Text style={styles.stepDetail}>{live ? 'details only' : 'nothing sent'}</Text>
       </View>
     </View>
   );
 }
 
-function MechanicRow({ mechanic, onPress }: { mechanic: DemoMechanic; onPress: () => void }) {
+function MechanicRow({ mechanic, onPress }: { mechanic: Mechanic; onPress: () => void }) {
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={`Open sample mechanic ${mechanic.name}`}
+      accessibilityLabel={`Open ${mechanic.isSample ? 'sample' : 'verified'} mechanic ${mechanic.name}`}
       onPress={onPress}
       style={({ pressed }) => [styles.mechanicRow, pressed && styles.rowPressed]}
     >
@@ -176,21 +180,30 @@ function MechanicRow({ mechanic, onPress }: { mechanic: DemoMechanic; onPress: (
         <View style={styles.rowArrowWrap} accessible={false}><Text style={styles.rowArrow}>↗</Text></View>
       </View>
       <Text style={styles.mechanicArea}>{mechanic.area}</Text>
-      <View style={styles.mechanicStats}>
-        <View style={styles.mechanicStat}>
-          <Text style={styles.statValue}>{mechanic.distance}</Text>
-          <Text style={styles.statLabel}>sample distance</Text>
+      {mechanic.isSample ? (
+        <>
+          <View style={styles.mechanicStats}>
+            <View style={styles.mechanicStat}>
+              <Text style={styles.statValue}>{mechanic.distance}</Text>
+              <Text style={styles.statLabel}>sample distance</Text>
+            </View>
+            <View style={styles.metaDivider} />
+            <View style={styles.mechanicStat}>
+              <Text style={styles.statValue}>{mechanic.eta}</Text>
+              <Text style={styles.statLabel}>sample ETA</Text>
+            </View>
+          </View>
+          <View style={styles.availabilityLine}>
+            <View style={styles.availabilityMark} />
+            <Text style={styles.availability}>{mechanic.availability}</Text>
+          </View>
+        </>
+      ) : (
+        <View style={styles.availabilityLine}>
+          <View style={styles.availabilityMark} />
+          <Text style={styles.availability}>Verified · current public listing</Text>
         </View>
-        <View style={styles.metaDivider} />
-        <View style={styles.mechanicStat}>
-          <Text style={styles.statValue}>{mechanic.eta}</Text>
-          <Text style={styles.statLabel}>sample ETA</Text>
-        </View>
-      </View>
-      <View style={styles.availabilityLine}>
-        <View style={styles.availabilityMark} />
-        <Text style={styles.availability}>{mechanic.availability}</Text>
-      </View>
+      )}
     </Pressable>
   );
 }
@@ -205,19 +218,47 @@ function DetailRow({ label, value }: { label: string; value: string }) {
 }
 
 export default function App() {
+  const liveMode = isProviderDirectoryConfigured;
   const [screen, setScreen] = useState<Screen>('home');
   const [locationState, setLocationState] = useState<LocationState>('idle');
   const [area, setArea] = useState('');
-  const [activeArea, setActiveArea] = useState('Central sample area');
+  const [activeArea, setActiveArea] = useState(liveMode ? '' : 'Central sample area');
   const [message, setMessage] = useState('');
-  const [selected, setSelected] = useState<DemoMechanic>(DEMO_MECHANICS[0]);
+  const [selected, setSelected] = useState<Mechanic>(DEMO_MECHANICS[0]);
   const [requestStatus, setRequestStatus] = useState<'waiting' | 'cancelled'>('waiting');
   const [listingName, setListingName] = useState('');
   const [listingPhone, setListingPhone] = useState('');
   const [listingArea, setListingArea] = useState('');
   const [listingErrors, setListingErrors] = useState<Record<string, string>>({});
   const [listingPreview, setListingPreview] = useState(false);
-  const mechanics = useMemo(() => providersFor(activeArea), [activeArea]);
+  const [directoryRows, setDirectoryRows] = useState<Awaited<ReturnType<typeof searchProviderDirectory>>>([]);
+  const [directoryLoading, setDirectoryLoading] = useState(false);
+  const [directoryError, setDirectoryError] = useState(false);
+  const [directoryRetry, setDirectoryRetry] = useState(0);
+  const mechanics = useMemo<Mechanic[]>(() => liveMode
+    ? directoryRows.map((provider) => ({
+      id: provider.id,
+      name: provider.display_name,
+      area: provider.public_area_label,
+      phone: provider.public_phone,
+      verifiedAt: provider.verified_at,
+      verificationValidUntil: provider.verification_valid_until,
+      isSample: false,
+    }))
+    : providersFor(activeArea), [activeArea, directoryRows, liveMode]);
+
+  useEffect(() => {
+    if (!liveMode || screen !== 'results') return undefined;
+    const controller = new AbortController();
+    setDirectoryRows([]);
+    setDirectoryError(false);
+    setDirectoryLoading(true);
+    void searchProviderDirectory(activeArea, controller.signal)
+      .then((rows) => { if (!controller.signal.aborted) setDirectoryRows(rows); })
+      .catch(() => { if (!controller.signal.aborted) setDirectoryError(true); })
+      .finally(() => { if (!controller.signal.aborted) setDirectoryLoading(false); });
+    return () => controller.abort();
+  }, [activeArea, directoryRetry, liveMode, screen]);
 
   const goHome = () => { setScreen('home'); setMessage(''); };
   const openArea = () => { setMessage(''); setScreen('area'); };
@@ -230,6 +271,7 @@ export default function App() {
     setScreen('results');
   };
   const checkLocationAfterTap = async () => {
+    if (liveMode) { openArea(); return; }
     if (locationState === 'checking') return;
     setMessage('');
     setLocationState('checking');
@@ -252,7 +294,7 @@ export default function App() {
       setScreen('area');
     }
   };
-  const openMechanic = (mechanic: DemoMechanic) => { setSelected(mechanic); setMessage(''); setScreen('profile'); };
+  const openMechanic = (mechanic: Mechanic) => { setSelected(mechanic); setMessage(''); setScreen('profile'); };
   const validateListing = () => {
     const errors: Record<string, string> = {};
     if (listingName.trim().length < 2) errors.name = 'Enter a fictional name with at least two characters.';
@@ -269,16 +311,18 @@ export default function App() {
         <Text style={styles.homeTitle}>Flat tyre?{ '\n' }Find a mechanic.</Text>
         <Text style={styles.homeSubtitle}>Find puncture help through your area or a familiar landmark.</Text>
       </View>
-      <HomeSteps />
-      <InlineNote>Location is checked once, only after you tap. It is never shared.</InlineNote>
+      <HomeSteps live={liveMode} />
+      <InlineNote>{liveMode
+        ? 'Search by area only. The live directory includes current verified listings with explicit public-contact consent; your location is not collected.'
+        : 'Location is checked once, only after you tap. It is never shared.'}</InlineNote>
       <View style={styles.homeActions}>
         <PrimaryButton
-          label={locationState === 'checking' ? 'Checking location…' : 'Find puncture help'}
-          accessibilityLabel="Find puncture help using optional one-time location check"
+          label={liveMode ? 'Search verified listings' : locationState === 'checking' ? 'Checking location…' : 'Find puncture help'}
+          accessibilityLabel={liveMode ? 'Search verified mechanics by area' : 'Find puncture help using optional one-time location check'}
           onPress={checkLocationAfterTap}
-          disabled={locationState === 'checking'}
+          disabled={!liveMode && locationState === 'checking'}
         />
-        <TextLink label="Use an area or landmark" onPress={openArea} />
+        {liveMode ? null : <TextLink label="Use an area or landmark" onPress={openArea} />}
       </View>
       <Pressable accessibilityRole="button" accessibilityLabel="Mechanic or shop? Preview one shared listing" onPress={() => { setListingErrors({}); setListingPreview(false); setScreen('listing'); }} style={styles.listingInvite}>
         <View style={styles.inviteRule} />
@@ -294,26 +338,46 @@ export default function App() {
   const renderArea = () => (
     <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
       <BackLink label="Back" onPress={goHome} />
-      <PageTitle title="Where should we look?" subtitle={locationState === 'denied' ? 'Location was not available. Enter an area or landmark instead.' : 'Enter an area or landmark to see sample mechanics.'} />
-      <TextField label="Area or landmark" value={area} onChangeText={(value) => { setArea(value); setMessage(''); }} placeholder="e.g., Central sample area" helper="Try Central sample area or East sample area." error={message} />
-      <PrimaryButton label="Show sample mechanics" onPress={() => showResults(area)} />
+      <PageTitle title="Where should we look?" subtitle={liveMode
+        ? 'Enter an area or landmark. No rider location is collected.'
+        : locationState === 'denied' ? 'Location was not available. Enter an area or landmark instead.' : 'Enter an area or landmark to see sample mechanics.'} />
+      <TextField label="Area or landmark" value={area} onChangeText={(value) => { setArea(value); setMessage(''); }} placeholder={liveMode ? 'e.g., Gulberg or Johar Town' : 'e.g., Central sample area'} helper={liveMode ? 'Only current verified, consented listings are returned.' : 'Try Central sample area or East sample area.'} error={message} />
+      <PrimaryButton label={liveMode ? 'Search live directory' : 'Show sample mechanics'} onPress={() => showResults(area)} />
     </ScrollView>
   );
 
   const renderResults = () => (
     <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-      <BackLink label={mechanics.length ? 'Change area' : 'Back to start'} onPress={mechanics.length ? openArea : goHome} />
-      <PageTitle title={mechanics.length ? 'Sample mechanics' : 'No sample mechanics yet'} subtitle={activeArea} />
-      <InlineNote>Examples · not matched to your location. Distance, timing and availability are fictional.</InlineNote>
-      {mechanics.length ? (
+      <BackLink label={liveMode || mechanics.length ? 'Change area' : 'Back to start'} onPress={liveMode || mechanics.length ? openArea : goHome} />
+      <PageTitle title={liveMode
+        ? directoryLoading ? 'Checking live directory' : directoryError ? 'Directory unavailable' : mechanics.length ? 'Verified listings' : 'No verified listings yet'
+        : mechanics.length ? 'Sample mechanics' : 'No sample mechanics yet'} subtitle={activeArea} />
+      <InlineNote>{liveMode
+        ? 'Only published listings with current verification and explicit listing/contact consent appear here. No location is used.'
+        : 'Examples · not matched to your location. Distance, timing and availability are fictional.'}</InlineNote>
+      {liveMode && directoryLoading ? (
+        <View style={styles.loadingState}>
+          <ActivityIndicator color={C.accent} />
+          <Text style={styles.emptyText}>Checking current listings…</Text>
+        </View>
+      ) : directoryError ? (
+        <View style={styles.emptyState}>
+          <Text style={styles.emptyEyebrow}>DIRECTORY TEMPORARILY UNAVAILABLE</Text>
+          <Text style={styles.emptyText}>The live directory could not be reached. Try again when you have a connection.</Text>
+          <PrimaryButton label="Try again" onPress={() => setDirectoryRetry((value) => value + 1)} />
+          <TextLink label="Change area" onPress={openArea} />
+        </View>
+      ) : mechanics.length ? (
         <View style={styles.mechanicList}>
           {mechanics.map((mechanic) => <MechanicRow key={mechanic.id} mechanic={mechanic} onPress={() => openMechanic(mechanic)} />)}
         </View>
       ) : (
         <View style={styles.emptyState}>
           <View style={styles.emptyMark}><TyreMark /></View>
-          <Text style={styles.emptyEyebrow}>NO MATCH IN THIS SAMPLE</Text>
-          <Text style={styles.emptyText}>No sample listings in {activeArea}. Try Central or East sample area.</Text>
+          <Text style={styles.emptyEyebrow}>{liveMode ? 'NO CURRENT VERIFIED MATCHES' : 'NO MATCH IN THIS SAMPLE'}</Text>
+          <Text style={styles.emptyText}>{liveMode
+            ? `No current verified listings were found in ${activeArea}. The directory may be empty for this area; try a different area later.`
+            : `No sample listings in ${activeArea}. Try Central or East sample area.`}</Text>
           <PrimaryButton label="Change area" onPress={openArea} />
         </View>
       )}
@@ -322,19 +386,28 @@ export default function App() {
 
   const renderProfile = () => (
     <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-      <BackLink label="Sample mechanics" onPress={() => setScreen('results')} />
+      <BackLink label={liveMode ? 'Verified listings' : 'Sample mechanics'} onPress={() => setScreen('results')} />
       <View style={styles.profileHeading}>
         <View style={styles.profileMark}><TyreMark /></View>
         <PageTitle title={selected.name} subtitle={selected.area} />
       </View>
       <View style={styles.detailList}>
-        <DetailRow label="Sample distance" value={`${selected.distance} · example`} />
-        <DetailRow label="Sample ETA" value={selected.eta} />
-        <DetailRow label="Availability" value={selected.availability} />
-        <DetailRow label="Sample phone" value={selected.phone} />
+        {selected.isSample ? <>
+          <DetailRow label="Sample distance" value={`${selected.distance} · example`} />
+          <DetailRow label="Sample ETA" value={selected.eta || ''} />
+          <DetailRow label="Availability" value={selected.availability || ''} />
+          <DetailRow label="Sample phone" value={selected.phone} />
+        </> : <>
+          <DetailRow label="Public phone" value={selected.phone} />
+          <DetailRow label="Verification valid until" value={new Date(selected.verificationValidUntil || '').toLocaleDateString()} />
+        </>}
       </View>
-      <InlineNote>Fictional profile. No call can be placed from this preview.</InlineNote>
-      <PrimaryButton label="Preview request" onPress={() => { setRequestStatus('waiting'); setScreen('request'); }} />
+      {selected.isSample
+        ? <>
+          <InlineNote>Fictional profile. No call can be placed from this preview.</InlineNote>
+          <PrimaryButton label="Preview request" onPress={() => { setRequestStatus('waiting'); setScreen('request'); }} />
+        </>
+        : <InlineNote>This public phone number has explicit contact consent. Calling, messaging and requests are not enabled in Patchlane.</InlineNote>}
     </ScrollView>
   );
 
@@ -384,7 +457,7 @@ export default function App() {
     <View style={styles.app}>
       <StatusBar style="dark" />
       <View style={styles.shell}>
-        <Header onHome={goHome} />
+          <Header onHome={goHome} live={liveMode} />
         <KeyboardAvoidingView style={styles.pageContainer} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
           {screen === 'home' ? renderHome() : null}
           {screen === 'area' ? renderArea() : null}
@@ -471,6 +544,7 @@ const styles = StyleSheet.create({
   availabilityLine: { flexDirection: 'row', alignItems: 'center', gap: 7 },
   availabilityMark: { width: 6, height: 6, borderRadius: 3, backgroundColor: C.accent },
   availability: { color: C.muted, fontSize: 12, lineHeight: 17 },
+  loadingState: { minHeight: 128, alignItems: 'center', justifyContent: 'center', gap: 12 },
   emptyState: { gap: 12, marginTop: 8 },
   emptyMark: { width: 54, height: 54, borderRadius: 27, backgroundColor: '#EFE8E2', alignItems: 'center', justifyContent: 'center', marginBottom: 2 },
   emptyEyebrow: { color: C.accent, fontSize: 11, lineHeight: 15, fontWeight: '700', letterSpacing: 1.05 },
