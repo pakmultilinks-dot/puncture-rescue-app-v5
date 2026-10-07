@@ -22,7 +22,7 @@ npm test
 
 `npm test` runs the backend contract audit, native configuration checks, browser tests for the fictional flow, and isolated browser tests for the live pilot. The live test uses only a local request interceptor and a test-only publishable placeholder; its single provider fixture never reaches Supabase. Tests cover successful, empty, and failed reads; a listing revoked after search; expired verification; network failure during the contact recheck; sample-only request/listing previews; responsive layouts; and 48 px touch targets. The checks also regenerate mobile web QA captures in [`screenshots/`](./screenshots/). These web captures are not native Android store screenshots.
 
-The internal EAS profile is `preview` and builds an APK; it does not publish to Google Play. Android package ID is `com.kominman.patchlane`. `app.json` uses version `5.0.0` and Android `versionCode: 2`; increase the version code before the next Play upload. Expo SDK 57 resolves Android target API 36 in the current prebuild.
+The latest EAS `preview` build is an internal APK, **not a Google Play release**. It was built from source commit [`f8ab047`](https://github.com/pakmultilinks-dot/puncture-rescue-app-v5/commit/f8ab0472f9bc52a5346d57ae49e70c20c2b3fda0), app version `5.0.0`, Android build number `2`. [Open build details](https://expo.dev/accounts/kominman/projects/patchlane-puncture-demo-v5/builds/d1c3274f-f7ca-45ad-8502-cbeb50f0a2af) or [download the review APK](https://expo.dev/artifacts/eas/y1r-VeYOEV31b-9Swl12ay2GquDhlVCE-SOQQt5BiEQ.apk). Increase `versionCode` before the next Play upload. Expo SDK 57 resolves Android target API 36 in the current prebuild.
 
 ## Backend status
 

@@ -1,6 +1,6 @@
 # Patchlane v5 test report
 
-**Run date:** 2026-10-07. **Source:** current working tree, before the new EAS internal APK build.
+**Run date:** 2026-10-07. **Source:** commit `f8ab0472f9bc52a5346d57ae49e70c20c2b3fda0`.
 
 ## Checks passed
 
@@ -14,6 +14,10 @@
 
 The suite regenerates ten **390 × 844 CSS-pixel web QA screenshots** in [`screenshots/`](./screenshots/), plus a contact sheet. These are web renders, not Android emulator or physical-device captures.
 
+## Internal APK
+
+EAS build `d1c3274f-f7ca-45ad-8502-cbeb50f0a2af` finished successfully as an internal Android APK using profile `preview`. It reports app version `5.0.0`, Android build number `2`, and source commit `f8ab047`. [Open the EAS build](https://expo.dev/accounts/kominman/projects/patchlane-puncture-demo-v5/builds/d1c3274f-f7ca-45ad-8502-cbeb50f0a2af) or [download the APK](https://expo.dev/artifacts/eas/y1r-VeYOEV31b-9Swl12ay2GquDhlVCE-SOQQt5BiEQ.apk). The 68,416,874-byte download passed the ZIP integrity check; SHA-256: `47c1bf0a23fe41efe0aa1030298fbd1b0c448383e5ed1cfd8a99aef66ae7a9be`. This is an internal review build, not a Play Store submission.
+
 ## Backend and security status
 
 The real anonymous GET to the Supabase public view returned HTTP 200 with `[]`. The project has **0 provider rows** and **0 verification events**. The test does not validate real provider consent, evidence, onboarding, or a populated production roster; it inserts no data.
@@ -22,4 +26,4 @@ After the SDK-compatible Expo update, removal of the unused location SDK, and a 
 
 ## Limits
 
-The new EAS profile is confirmed as an internal APK build, but the current code has not yet been built or run on a physical Android device/emulator. The native dialer handoff, keyboard/focus behavior, Android upgrade/install path, and real network behavior still require hands-on testing. The previous EAS APK predates these fixes and must not be used to validate the current source. This is an internal pilot, not a public-service or store-readiness sign-off.
+The APK has not been installed or exercised on a physical Android device or emulator. The native dialer handoff, keyboard/focus behavior, Android upgrade/install path, and real network behavior still require hands-on testing. The live directory also remains empty, so the browser fixture is not real service coverage. This is an internal pilot, not a public-service or store-readiness sign-off.
